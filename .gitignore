@@ -1,0 +1,5 @@
+src/train_model/data/
+.idea/
+.git/
+anaconda_projects/
+src/train_model/.ipynb_checkpoints/
