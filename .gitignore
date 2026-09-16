@@ -3,3 +3,4 @@ src/train_model/data/
 .git/
 anaconda_projects/
 src/train_model/.ipynb_checkpoints/
+cache/
