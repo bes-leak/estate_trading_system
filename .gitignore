@@ -4,3 +4,4 @@ src/train_model/data/
 anaconda_projects/
 src/train_model/.ipynb_checkpoints/
 cache/
+__pycache__/
