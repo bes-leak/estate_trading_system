@@ -12,14 +12,27 @@ features_config = {
           "kitchen_area", "object_type", "months_since_start", "dist_to_center"],
     "C": ["price", "fold", "building_type", "level", "levels", "rooms", "area",
           "kitchen_area", "object_type", "months_since_start", "dist_to_center",
+          "azimuth_sin", "azimuth_cos",
           "distance_metro", "distance_rail", "distance_major_road",
           "road_load_300", "road_load_1000"],
     "D": ["price", "fold", "building_type", "level", "levels", "rooms", "area",
           "kitchen_area", "object_type", "months_since_start", "dist_to_center",
+          "azimuth_sin", "azimuth_cos",
           "distance_metro", "distance_rail", "distance_major_road",
           "road_load_300", "road_load_1000", "distance_industrial",
           "industrial_area_1000", "distance_park", "green_area_500",
-          "green_area_1000", "distance_water"]
+          "green_area_1000", "distance_water", "house_age"],
+    "E": ["price", "fold", "building_type", "level", "levels", "rooms", "area",
+          "kitchen_area", "object_type", "months_since_start", "dist_to_center",
+          "azimuth_sin", "azimuth_cos",
+          "distance_metro", "distance_rail", "distance_major_road",
+          "road_load_300", "road_load_1000", "distance_industrial",
+          "industrial_area_1000", "distance_park", "green_area_500",
+          "green_area_1000", "distance_water", "house_age",
+          "ndvi_mean_300", "ndvi_mean_500", "ndvi_mean_1000",
+          "ndvi_stdev_300", "ndvi_stdev_500", "ndvi_stdev_1000",
+          "ndbi_mean_300", "ndbi_mean_500", "ndbi_mean_1000",
+          "ndbi_stdev_300", "ndbi_stdev_500", "ndbi_stdev_1000"]
 }
 
 root = Path("./data")
@@ -33,7 +46,15 @@ def get_features(config: str) -> pd.DataFrame:
 
     data["months_since_start"] = (data["dt"] - pd.Timestamp("2018-03-01")).dt.days / 30.44
 
+    # возраст дома на момент публикации, NaN там где год постройки неизвестен
+    data["house_age"] = data["dt"].dt.year - data["build_year"]
+
     columns = features_config[config] + ["weight"]
+
+    missing = [column for column in columns if column not in data.columns]
+    if missing:
+        raise KeyError(f"нет колонок {missing}, пересоберите merged_data.parquet")
+
     return data[columns].copy()
 
 
@@ -42,18 +63,17 @@ def merge_data() -> None:
     data = pd.read_parquet(root / "clean.parquet")
     transport_features = pd.read_parquet(root / "geo/transport.parquet")
     env_features = pd.read_parquet(root / "geo/env.parquet")
+    raster_features = pd.read_parquet(root / "geo/raster_stats.parquet")
 
-    data = data.merge(
-        transport_features,
-        on=["geo_lat", "geo_lon"],
-        how = "left"
-    )
+    features = [transport_features, env_features, raster_features]
 
-    data = data.merge(
-        env_features,
-        on=["geo_lat", "geo_lon"],
-        how = "left"
-    )
+    for feat in features:
+
+        data = data.merge(
+            feat,
+            on=["geo_lat", "geo_lon"],
+            how = "left"
+        )
 
     make_folds(data)
 

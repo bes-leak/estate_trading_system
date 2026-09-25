@@ -101,7 +101,7 @@ def summary(run_time: str = None) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    configs = sys.argv[1:] if len(sys.argv) > 1 else ["A", "B", "C", "D"]
+    configs = sys.argv[1:] if len(sys.argv) > 1 else ["A", "B", "C", "D", "E"]
     for conf in configs:
         run_cv(conf)
     print(summary())
