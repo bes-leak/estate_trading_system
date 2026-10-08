@@ -38,7 +38,7 @@ features_config = {
 root = Path("./data")
 
 
-def get_features(config: str) -> pd.DataFrame:
+def get_features(config: str, extra: list = ()) -> pd.DataFrame:
     if not os.path.exists("data/merged_data.parquet"):
         merge_data()
 
@@ -49,7 +49,7 @@ def get_features(config: str) -> pd.DataFrame:
     # возраст дома на момент публикации, NaN там где год постройки неизвестен
     data["house_age"] = data["dt"].dt.year - data["build_year"]
 
-    columns = features_config[config] + ["weight"]
+    columns = features_config[config] + ["weight"] + list(extra)
 
     missing = [column for column in columns if column not in data.columns]
     if missing:
