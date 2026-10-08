@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: estate
+      POSTGRES_USER: kvarts
+      POSTGRES_PASSWORD: kvarts
+    ports: ["5433:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # выгрузка csv и sql-скрипты доступны внутри контейнера только для чтения
+      - ./src/train_model/data/sql:/data:ro
+      - ./backend:/backend:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kvarts"]
+      interval: 5s
+
+volumes:
+  pgdata:

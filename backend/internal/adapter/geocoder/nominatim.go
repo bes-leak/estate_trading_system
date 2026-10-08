@@ -47,7 +47,7 @@ func (n *Nominatim) Geocode(ctx context.Context, address string) (domain.Coordin
 	resp, err := n.client.Do(req)
 
 	if err != nil {
-		return domain.Coordinate{}, fmt.Errorf("geocoder: net: %d", err)
+		return domain.Coordinate{}, fmt.Errorf("geocoder: network: %w", err)
 	}
 
 	defer resp.Body.Close()
@@ -62,7 +62,7 @@ func (n *Nominatim) Geocode(ctx context.Context, address string) (domain.Coordin
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return domain.Coordinate{}, fmt.Errorf("geocoder: analysis of responce: %w", err)
+		return domain.Coordinate{}, fmt.Errorf("geocoder: decode response: %w", err)
 	}
 
 	if len(result) == 0 {
@@ -71,12 +71,12 @@ func (n *Nominatim) Geocode(ctx context.Context, address string) (domain.Coordin
 
 	lat, err := strconv.ParseFloat(result[0].Lat, 64)
 	if err != nil {
-		return domain.Coordinate{}, fmt.Errorf("геокодер: широта %q: %w", result[0].Lat, err)
+		return domain.Coordinate{}, fmt.Errorf("geocoder: parse latitude %q: %w", result[0].Lat, err)
 	}
 
 	lon, err := strconv.ParseFloat(result[0].Lon, 64)
 	if err != nil {
-		return domain.Coordinate{}, fmt.Errorf("геокодер: долгота %q: %w", result[0].Lon, err)
+		return domain.Coordinate{}, fmt.Errorf("geocoder: parse longitude %q: %w", result[0].Lon, err)
 	}
 
 	return domain.Coordinate{Lat: lat, Lon: lon}, nil

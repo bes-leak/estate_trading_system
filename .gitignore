@@ -5,3 +5,4 @@ anaconda_projects/
 src/train_model/.ipynb_checkpoints/
 cache/
 __pycache__/
+backend/.env

@@ -14,4 +14,4 @@ type Geocoder interface {
 	Geocode(ctx context.Context, address string) (Coordinate, error)
 }
 
-var ErrAddressNotFound = errors.New("адрес не найден")
+var ErrAddressNotFound = errors.New("address not found")
