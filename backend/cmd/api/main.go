@@ -1,58 +1,39 @@
 package main
 
 import (
-	"context"
-	"errors"
 	"fmt"
-	"log"
-	"os"
-	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 
-	"github.com/bes-leak/estate_trading_system/backend/internal/adapter/geocoder"
-	"github.com/bes-leak/estate_trading_system/backend/internal/domain"
-	"github.com/bes-leak/estate_trading_system/backend/internal/repository/postgres"
+	"github.com/bes-leak/estate_trading_system/backend/internal/estate_filters"
+	"github.com/bes-leak/estate_trading_system/backend/internal/service"
 )
 
 func main() {
-	// .env is optional: in docker the variables come from the environment
 	_ = godotenv.Load()
 
-	address := "Московский государственный университет"
+	priceMin := int64(1_000_000)
+	priceMax := int64(8_000_000)
+	areaMin := float32(45.5)
 
-	var coder domain.Geocoder = geocoder.NewNominatim()
+	req := service.SearchRequest{
+		PriceMin: &priceMin,
+		PriceMax: &priceMax,
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+		Rooms: []int16{1, 2},
 
-	coord, err := coder.Geocode(ctx, address)
-	if errors.Is(err, domain.ErrAddressNotFound) {
-		log.Fatal("address not found")
-	}
-	if err != nil {
-		log.Fatal("geocode: ", err)
-	}
+		AreaMin: &areaMin,
+		AreaMax: nil,
 
-	fmt.Printf("%s -> %.6f, %.6f\n", address, coord.Lat, coord.Lon)
+		BBox: nil,
 
-	pool, err := pgxpool.New(ctx, os.Getenv("DATABASE_URL"))
-	if err != nil {
-		log.Fatal("connect to database: ", err)
-	}
-	defer pool.Close()
-
-	if err := pool.Ping(ctx); err != nil {
-		log.Fatal("database unreachable: ", err)
+		MetroWithin:  nil,
+		ExcludeFirst: true,
 	}
 
-	var buildings domain.BuildingRepository = postgres.NewBuildingRepo(pool)
+	criterion := service.BuildCriterion(req)
+	args := &estate_filters.Args{}
 
-	building, err := buildings.EnsureBuilding(ctx, coord)
-	if err != nil {
-		log.Fatal("ensure building: ", err)
-	}
+	fmt.Println("WHERE:", criterion.SQL(args))
 
-	fmt.Printf("building id=%d features_ready=%t\n", building.ID, building.FeaturesReady)
 }

@@ -3,6 +3,8 @@ import sys
 import time
 from datetime import datetime
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import torch
@@ -112,7 +114,18 @@ def run_fold(fold, data, table, patches, use_image, params):
     test_pred = predict(model, table, patches, test_rows, mean, std, use_image)
     score = mdape(np.exp(target[test_rows[:, 0]].cpu().numpy()), np.exp(test_pred.cpu().numpy()))
 
-    return score, best_epoch, int(train_mask.sum()), int(test_mask.sum())
+    # веса лучшей эпохи сохраняем: пригодятся для ансамбля и для сервиса оценки
+    Path("./models").mkdir(exist_ok=True)
+    name = "NN_image" if use_image else "NN_tabular"
+    torch.save({"state_dict": best_state, "n_features": table.shape[1],
+                "use_image": use_image, "patch_mean": mean, "patch_std": std,
+                "params": params, "val_mdape": best_score},
+               f"./models/nn_{name}_fold{fold}.pt")
+
+    predictions = np.full(len(data), np.nan)
+    predictions[test_rows[:, 0].cpu().numpy()] = test_pred.cpu().numpy()
+
+    return score, best_epoch, int(train_mask.sum()), int(test_mask.sum()), predictions
 
 
 def run_cv(use_image: bool = True, params: dict = params, n_folds: int = 5) -> pd.DataFrame:
@@ -124,13 +137,15 @@ def run_cv(use_image: bool = True, params: dict = params, n_folds: int = 5) -> p
 
     run_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     rows = []
+    oof = np.full(len(data), np.nan)
 
     for fold in range(n_folds):
         train_mask = (data["fold"].values != fold) & (data["fold"].values != (fold + 1) % n_folds) & (data["fold"].values != -1)
         table = make_tabular(data, train_mask)
 
         print(f"fold {fold}: признаков {table.shape[1]}")
-        score, best_epoch, n_train, n_test = run_fold(fold, data, table, patches, use_image, params)
+        score, best_epoch, n_train, n_test, predictions = run_fold(fold, data, table, patches, use_image, params)
+        oof = np.where(np.isnan(predictions), oof, predictions)
         print(f"fold {fold}: MdAPE {score * 100:.2f}%", flush=True)
 
         rows.append({
@@ -148,6 +163,15 @@ def run_cv(use_image: bool = True, params: dict = params, n_folds: int = 5) -> p
     result = pd.DataFrame(rows)
     RESULTS_PATH.parent.mkdir(exist_ok=True)
     result.to_csv(RESULTS_PATH, mode="a", header=not RESULTS_PATH.exists(), index=False)
+
+    # OOF-предсказания в том же формате, что у бустинга: нужны для ансамбля
+    # в data колонка price уже преобразована в log(цена/м2), поэтому называем её target
+    frame = data[["fold", "area", "weight", "geo_lat", "geo_lon"]].copy()
+    frame["target"] = data["price"]
+    frame["price"] = np.exp(data["price"]) * data["area"]
+    frame["pred"] = oof
+    frame = frame[frame["pred"].notna()]
+    frame.to_parquet(RESULTS_PATH.parent / f"oof_{name}.parquet", index=False)
 
     print(f"{name}: среднее MdAPE {result['mdape'].mean() * 100:.2f}% ± {result['mdape'].std() * 100:.2f}")
     return result
